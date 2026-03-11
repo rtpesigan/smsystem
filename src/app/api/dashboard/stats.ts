@@ -23,17 +23,17 @@ export async function GET() {
       prisma.payment.aggregate({
         _sum: { amount: true },
         where: {
-          status: "completed",
+          status: "COMPLETED",
         },
       }),
       prisma.payment.count({
         where: {
-          status: "pending",
+          status: "PENDING",
         },
       }),
       prisma.storageUnit.count({
         where: {
-          status: "occupied",
+          status: "OCCUPIED",
         },
       }),
     ])
@@ -56,7 +56,7 @@ export async function GET() {
       by: ["createdAt"],
       _sum: { amount: true },
       where: {
-        status: "completed",
+        status: "COMPLETED",
       },
       orderBy: { createdAt: "desc" },
       take: 12,

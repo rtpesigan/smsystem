@@ -1,0 +1,249 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// User model for authentication
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  password      String?
+  image         String?
+  role          UserRole  @default(STAFF)
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  activityLogs  ActivityLog[]
+  sessions      Session[]
+  accounts      Account[]
+
+  @@map("users")
+}
+
+enum UserRole {
+  ADMIN
+  STAFF
+  VIEWER
+}
+
+// NextAuth Sessions
+model Account {
+  id                 String  @id @default(cuid())
+  userId             String
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String?  @db.Text
+  access_token       String?  @db.Text
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String?  @db.Text
+  session_state      String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// Storage Categories
+model StorageCategory {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  description String?   @db.Text
+  icon        String?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relations
+  units       StorageUnit[]
+
+  @@map("storage_categories")
+}
+
+// Storage Units
+model StorageUnit {
+  id            String    @id @default(cuid())
+  unitNumber    String    @unique
+  categoryId    String
+  category      StorageCategory @relation(fields: [categoryId], references: [id])
+  size          String    // Changed from UnitSize enum to String
+  floorLevel    Int
+  pricePerMonth Decimal   @db.Decimal(10, 2)
+  description   String?   @db.Text
+  status        UnitStatus @default(AVAILABLE)
+  qrCode        String?   @unique
+  latitude      Float?
+  longitude     Float?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  rentals       Rental[]
+  payments      Payment[]
+
+  @@index([categoryId])
+  @@index([status])
+  @@map("storage_units")
+}
+
+enum UnitSize {
+  SMALL       // up to 50 sq ft
+  MEDIUM      // 51-150 sq ft
+  LARGE       // 151+ sq ft
+}
+
+enum UnitStatus {
+  AVAILABLE
+  OCCUPIED
+  MAINTENANCE
+}
+
+// Customers
+model Customer {
+  id          String    @id @default(cuid())
+  firstName   String
+  lastName    String
+  email       String?   @unique
+  phone       String
+  address     String?   @db.Text
+  city        String?
+  state       String?
+  zipCode     String?
+  idType      String?
+  idNumber    String?
+  idImageUrl  String?
+  notes       String?   @db.Text
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relations
+  rentals     Rental[]
+  payments    Payment[]
+
+  @@index([email])
+  @@index([phone])
+  @@map("customers")
+}
+
+// Rentals
+model Rental {
+  id              String      @id @default(cuid())
+  customerId      String
+  customer        Customer    @relation(fields: [customerId], references: [id])
+  storageUnitId   String
+  storageUnit     StorageUnit @relation(fields: [storageUnitId], references: [id])
+  startDate       DateTime
+  endDate         DateTime?
+  monthlyRate     Decimal     @db.Decimal(10, 2)
+  status          RentalStatus @default(ACTIVE)
+  notes           String?     @db.Text
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  // Relations
+  payments        Payment[]
+
+  @@index([customerId])
+  @@index([storageUnitId])
+  @@index([status])
+  @@map("rentals")
+}
+
+enum RentalStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
+}
+
+// Payments
+model Payment {
+  id            String      @id @default(cuid())
+  rentalId      String
+  rental        Rental      @relation(fields: [rentalId], references: [id])
+  customerId    String
+  customer      Customer    @relation(fields: [customerId], references: [id])
+  storageUnitId String
+  storageUnit   StorageUnit @relation(fields: [storageUnitId], references: [id])
+  amount        Decimal     @db.Decimal(10, 2)
+  paymentDate   DateTime?
+  dueDate       DateTime
+  paymentMethod PaymentMethod
+  status        PaymentStatus @default(PENDING)
+  transactionId String?
+  notes         String?     @db.Text
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([rentalId])
+  @@index([customerId])
+  @@index([storageUnitId])
+  @@index([status])
+  @@map("payments")
+}
+
+enum PaymentMethod {
+  CASH
+  CHECK
+  CREDIT_CARD
+  BANK_TRANSFER
+  ONLINE
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  OVERDUE
+  CANCELLED
+}
+
+// Activity Logs
+model ActivityLog {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id])
+  action      String
+  entityType  String
+  entityId    String?
+  description String?   @db.Text
+  changes     Json?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime  @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("activity_logs")
+}

@@ -5,11 +5,13 @@
   "scripts": {
     "dev": "next dev",
     "dev:clean": "node -e \"const {spawn}=require('child_process'); const env={...process.env, DEBUG:''}; const p=spawn('next',['dev'],{stdio:'inherit',shell:true,env}); p.on('exit',c=>process.exit(c??0));\"",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "start": "next start",
     "lint": "eslint",
     "db:push": "prisma db push",
-    "db:seed": "prisma db seed"
+    "db:seed": "prisma db seed",
+    "railway:build": "prisma generate && npm run build",
+    "railway:start": "npm start"
   },
   "dependencies": {
     "@next-auth/prisma-adapter": "^1.0.7",
